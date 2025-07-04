@@ -110,33 +110,28 @@ async function fetchRecentReviews() {
         try {
             const userkey = `profileId:${userRank.user.profileId}`;
             const result = await fetchUserActivities(userkey);
+            debug(`Processing ${result.activities.length} activities for ${userRank.user.username}`);
 
             if (result.activities.length > 0) {
                 result.activities.forEach(activity => {
-                    const authorProfileId = activity.author?.profileId;
-                    const subjectProfileId = activity.subject?.profileId;
-                    if (activity.type === 'review' && authorProfileId && subjectProfileId) {
-                        const uniqueId = createUniqueId(activity);
+                    const authorProfileId = activity.author?.profileId || activity.authorUser?.profileId;
+                    const subjectProfileId = activity.subject?.profileId || activity.subjectUser?.profileId;
 
+                    if (authorProfileId && subjectProfileId) {
+                        const uniqueId = createUniqueId(activity);
                         if (!processedActivities.has(uniqueId)) {
                             processedActivities.add(uniqueId);
+                            const subjectUser = profileIdToUser.get(subjectProfileId);
+                            const authorUser = profileIdToUser.get(authorProfileId);
 
-                            if (gigachadProfileIds.has(subjectProfileId) &&
-                                gigachadProfileIds.has(authorProfileId) &&
-                                authorProfileId !== subjectProfileId) {
-
-                                const subjectUser = profileIdToUser.get(subjectProfileId);
-                                const authorUser = profileIdToUser.get(authorProfileId);
-
-                                if (subjectUser && authorUser) {
-                                    debug(`✅ Unique review: ${authorUser.username} -> ${subjectUser.username}`);
-                                    allReviews.push({
-                                        ...activity,
-                                        authorUser: authorUser,
-                                        subjectUser: subjectUser,
-                                        uniqueId: uniqueId
-                                    });
-                                }
+                            if (subjectUser && authorUser) {
+                                debug(`✅ Unique review: ${authorUser.username} -> ${subjectUser.username}`);
+                                allReviews.push({
+                                    ...activity,
+                                    authorUser: authorUser,
+                                    subjectUser: subjectUser,
+                                    uniqueId: uniqueId
+                                });
                             }
                         }
                     }
@@ -157,22 +152,37 @@ async function fetchRecentReviews() {
     return allReviews.slice(0, MAX_ITEMS);
 }
 
-// ========== Rendu HTML harmonisé ==========
+// ========== Rendu HTML sous forme de cartes ==========
 
-function reviewToMarqueeText(review) {
-    const authorName = review.authorUser.displayName || review.authorUser.username;
-    const subjectName = review.subjectUser.displayName || review.subjectUser.username;
-    const timeAgo = formatTimeAgo(review.createdAt || review.timestamp);
-    return `${authorName} reviewed ${subjectName} • ${timeAgo}`;
-}
+function displayReviews(reviews) {
+    const container = document.getElementById('reviews-container');
+    container.innerHTML = ''; // Vider le conteneur avant d'ajouter les nouvelles cartes
 
-function updateReviewsMarquee(reviews) {
-    const span = document.getElementById('reviewsMarqueeContent');
-    if (reviews.length > 0) {
-        span.textContent = reviews.map(reviewToMarqueeText).join('   |   ');
-    } else {
-        span.textContent = 'No recent reviews between Giga Chads';
+    if (reviews.length === 0) {
+        container.innerHTML = '<p style="text-align: center; color: #a0a0a0;">No recent reviews between Giga Chads</p>';
+        return;
     }
+
+    reviews.forEach((review, index) => {
+        const card = document.createElement('div');
+        card.classList.add('card');
+        card.style.animationDelay = `${index * 0.1}s`; // Délai d'animation pour chaque carte
+
+        const authorName = review.authorUser.displayName || review.authorUser.username || 'Anonymous';
+        const subjectName = review.subjectUser.displayName || review.subjectUser.username || 'Unknown User';
+        const timeAgo = formatTimeAgo(review.createdAt || review.timestamp);
+        const title = getReviewTitle(review);
+        const description = getReviewDescription(review);
+
+        card.innerHTML = `
+            <h3>${authorName} reviewed ${subjectName}</h3>
+            <p class="time-ago">${timeAgo}</p>
+            <p><strong>${title}</strong></p>
+            ${description ? `<p>${description}</p>` : ''}
+        `;
+
+        container.appendChild(card);
+    });
 }
 
 // ========== Initialisation ==========
@@ -181,8 +191,7 @@ async function loadReviews() {
     try {
         debug('Starting reviews loading...');
         const reviews = await fetchRecentReviews();
-        displayReviews(reviews);
-        updateReviewsMarquee(reviews);
+        displayReviews(reviews); // Afficher les reviews sous forme de cartes
         document.getElementById('loading').style.display = 'none';
         document.getElementById('content').style.display = 'block';
         debug('Loading completed successfully');

@@ -1,105 +1,112 @@
+/* Reset et style global */
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+    font-family: 'Arial', sans-serif;
+}
+
 body {
-  background: #121212;  /* encore plus dark, sans teinte bleue */
-  margin: 0;
-  font-family: 'Sora', 'Poppins', 'Outfit', 'Inter', Arial, sans-serif;
-  color: #f3f5f7;
-  min-height: 100vh;
+    background-color: #121212;
+    color: #e0e0e0;
+    line-height: 1.6;
 }
 
-.main-header {
-  width: 100vw;
-  padding: 22px 24px 6px 24px;
-  background: #18181b;
+.container {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 20px;
 }
 
-.main-header h1 {
-  margin: 0;
-  font-size: 2.2rem;
-  letter-spacing: 0.03em;
-  color: #e8ecef;
-  font-weight: 700;
-  text-transform: none;
-  text-align: left;
+header {
+    text-align: center;
+    margin-bottom: 40px;
+    padding: 20px;
+    background-color: #1e1e1e;
+    border-radius: 10px;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
 }
 
-.marquee-wrap {
-  overflow: hidden;
-  width: 100%;
-  background: #181b20;
-  border-radius: 14px;
-  position: relative;
-  height: 56px;
-  margin-bottom: 12px;
-  box-shadow: 0 2px 10px #00000022;
-  border: 1px solid #232425;
+header h1 {
+    color: #ffffff;
+    font-size: 2.5em;
+    margin-bottom: 10px;
 }
 
-.marquee-wrap {
-  overflow: hidden;
-  width: 100%;
-  background: #181b20;
-  border-radius: 13px;
-  position: relative;
-  height: 56px;
-  margin: 16px 0 12px 0;
-  box-shadow: 0 2px 12px #0001;
-  border: 1px solid #212226;
+header p {
+    color: #a0a0a0;
+    font-size: 1.1em;
 }
 
-.marquee {
-  display: flex;
-  align-items: center;
-  height: 100%;
-  width: fit-content;
-  will-change: transform;
-  animation: scroll-marquee linear infinite;
-  gap: 22px;
-  padding-left: 50vw; /* pour commencer hors écran à droite */
-}
-.marquee-paused { animation-play-state: paused !important; }
-
-@keyframes scroll-marquee {
-  100% { transform: translateX(var(--marquee-width, -50%)); }
-  0%   { transform: translateX(0); }
+.data-section {
+    margin-bottom: 50px;
 }
 
-.vouch-card {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  background: #23272e;
-  border-radius: 12px;
-  border: 1px solid #24272f;
-  min-width: 290px;
-  padding: 8px 19px 8px 9px;
-  margin-right: 6px;
-  text-decoration: none;
-  transition: background .12s, border .12s;
-  cursor: pointer;
-  box-shadow: 0 1px 2px #00000010;
-}
-.vouch-card:hover, .vouch-card:focus {
-  background: #1e2936;
-  border: 1.3px solid #42afff;
-  outline: none;
+.data-section h2 {
+    color: #ffffff;
+    font-size: 1.8em;
+    margin-bottom: 20px;
+    text-align: center;
 }
 
-.vouch-avatar {
-  width: 32px; height: 32px; border-radius: 50%;
-  object-fit: cover; margin-right: 4px;
-  border: 1.4px solid #232425;
-  background: #222;
+/* Style des cartes */
+.card-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 20px;
 }
 
-.vouch-arrow {
-  color: #41c9fa; font-weight: 900; font-size: 1.38em; margin: 0 7px;
+.card {
+    background-color: #1e1e1e;
+    border-radius: 10px;
+    padding: 20px;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
+    opacity: 0;
+    animation: fadeIn 0.5s ease-out forwards;
 }
-.vouch-row {
-  display: flex; gap: 0.5em; flex-wrap: wrap; align-items:center;
-  position:relative; min-width:0;
+
+.card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 6px 12px rgba(0, 0, 0, 0.5);
 }
-.vouch-amount { color: #53ffdf; font-weight: 700; margin-left: 8px; }
-.vouch-user { font-weight: 700; color: #fff; font-family: 'Inter',sans-serif; }
-.vouch-verb { color: #b7b9ff; font-weight: 700; margin: 0 3px;}
-.vouch-time { color: #7ef0c8; opacity: .74; font-size: .96em; margin-left: 10px; }
-.vouch-desc { color: #dde5fa; opacity:.79; font-size:.98em; margin-left:1px; white-space:nowrap; text-overflow:ellipsis; overflow:hidden; max-width:197px;}
+
+.card h3 {
+    color: #ffffff;
+    font-size: 1.4em;
+    margin-bottom: 10px;
+}
+
+.card p {
+    color: #b0b0b0;
+    font-size: 1em;
+    margin-bottom: 10px;
+}
+
+.card .time-ago {
+    color: #888888;
+    font-style: italic;
+    font-size: 0.9em;
+}
+
+/* Animation d'apparition */
+@keyframes fadeIn {
+    to {
+        opacity: 1;
+    }
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+    .card-grid {
+        grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+    }
+
+    header h1 {
+        font-size: 2em;
+    }
+
+    .data-section h2 {
+        font-size: 1.5em;
+    }
+}
