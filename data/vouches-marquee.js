@@ -7,7 +7,7 @@ const processedActivities = new Set();
 
 function debug(message, data = null) {
     if (DEBUG_MODE) {
-        console.log(`[REVIEWS] ${message}`, data);
+        console.log(`[VOUCHES] ${message}`, data);
     }
 }
 
@@ -26,6 +26,34 @@ function formatTimeAgo(timestamp) {
     return `${Math.floor(diff / 2592000)}mo ago`;
 }
 
+// Convertit Wei => ETH
+function weiToEth(wei) {
+    if (!wei || wei === '0') return '0.000';
+    return (parseInt(wei) / 1e18).toFixed(3);
+}
+
+// Récupérer le montant stake pour la vouch
+function getStakedAmount(activity) {
+    // Pour vouch au format Ethos
+    if (activity.data?.deposited) {
+        return weiToEth(activity.data.deposited);
+    }
+    // fallback si on est sur d'autres formats "content"
+    if (activity.content?.deposited) {
+        return weiToEth(activity.content.deposited);
+    }
+    if (activity.data?.staked) { // (par sécurité, met en dernier recours)
+        return weiToEth(activity.data.staked);
+    }
+    if (activity.content?.stakeAmount) {
+        return parseFloat(activity.content.stakeAmount).toFixed(3);
+    }
+    if (activity.content?.staked) {
+        return weiToEth(activity.content.staked);
+    }
+    return '0.000';
+}
+
 function showError(message, details = null) {
     console.error('[ERROR]', message, details);
     document.getElementById('loading').style.display = 'none';
@@ -36,19 +64,9 @@ function showError(message, details = null) {
 
 // ========== Activity Parsing ==========
 
-function getReviewTitle(activity) {
-    if (activity.content?.title) return activity.content.title;
-    if (activity.content?.comment) return activity.content.comment;
-    if (activity.content?.text) return activity.content.text;
+function getVouchTitle(activity) {
     const subjectName = activity.subjectUser?.displayName || activity.subjectUser?.username || 'User';
-    return `Review for ${subjectName}`;
-}
-
-function getReviewDescription(activity) {
-    if (activity.content?.description) return activity.content.description;
-    if (activity.translatedDescription) return activity.translatedDescription;
-    if (activity.description) return activity.description;
-    return '';
+    return `Vouch for ${subjectName}`;
 }
 
 function createUniqueId(activity) {
@@ -92,13 +110,13 @@ async function fetchUserActivities(userkey) {
 
 // ========== Main Fetch Logic ==========
 
-async function fetchRecentReviews() {
-    debug('Starting reviews fetch...');
+async function fetchRecentVouches() {
+    debug('Starting vouches fetch...');
     if (!gigachadsData || !gigachadsData.ranking) {
         throw new Error('Giga Chads data not available');
     }
 
-    const allReviews = [];
+    const allVouches = [];
     const gigachadProfileIds = new Set(gigachadsData.ranking.map(u => u.user.profileId));
     const profileIdToUser = new Map(gigachadsData.ranking.map(u => [u.user.profileId, u.user]));
     processedActivities.clear();
@@ -115,7 +133,7 @@ async function fetchRecentReviews() {
                 result.activities.forEach(activity => {
                     const authorProfileId = activity.author?.profileId;
                     const subjectProfileId = activity.subject?.profileId;
-                    if (activity.type === 'review' && authorProfileId && subjectProfileId) {
+                    if (activity.type === 'vouch' && authorProfileId && subjectProfileId) {
                         const uniqueId = createUniqueId(activity);
 
                         if (!processedActivities.has(uniqueId)) {
@@ -129,11 +147,13 @@ async function fetchRecentReviews() {
                                 const authorUser = profileIdToUser.get(authorProfileId);
 
                                 if (subjectUser && authorUser) {
-                                    debug(`✅ Unique review: ${authorUser.username} -> ${subjectUser.username}`);
-                                    allReviews.push({
+                                    const stakedAmount = getStakedAmount(activity);
+                                    debug(`✅ Unique vouch: ${authorUser.username} -> ${subjectUser.username} (${stakedAmount} ETH)`);
+                                    allVouches.push({
                                         ...activity,
                                         authorUser: authorUser,
                                         subjectUser: subjectUser,
+                                        stakedAmount,
                                         uniqueId: uniqueId
                                     });
                                 }
@@ -150,72 +170,50 @@ async function fetchRecentReviews() {
         await new Promise(resolve => setTimeout(resolve, 300));
     }
 
-    allReviews.sort((a, b) =>
+    allVouches.sort((a, b) =>
         new Date(b.createdAt || b.timestamp) - new Date(a.createdAt || a.timestamp)
     );
-    debug('Total reviews fetched (no duplicates)', { count: allReviews.length });
-    return allReviews.slice(0, MAX_ITEMS);
+    debug('Total vouches fetched (no duplicates)', { count: allVouches.length });
+    return allVouches.slice(0, MAX_ITEMS);
 }
 
 // ========== Rendu HTML harmonisé ==========
 
-function createReviewHTML(review) {
-    const translatedTitle = review.translation?.translatedContent || review.comment;
-    const description = getReviewDescription(review);
-    const timeAgo = formatTimeAgo(review.createdAt || review.timestamp);
-    const authorName = review.authorUser.displayName || review.authorUser.username;
-    const subjectName = review.subjectUser.displayName || review.subjectUser.username;
-    const authorAvatar = review.authorUser.avatarUrl || 'https://via.placeholder.com/46';
-    const subjectAvatar = review.subjectUser.avatarUrl || 'https://via.placeholder.com/46';
+function vouchToMarqueeText(vouch) {
+    const authorName = vouch.authorUser.displayName || vouch.authorUser.username;
+    const subjectName = vouch.subjectUser.displayName || vouch.subjectUser.username;
+    const stakedAmount = vouch.stakedAmount || getStakedAmount(vouch);
+    const timeAgo = formatTimeAgo(vouch.createdAt || vouch.timestamp);
 
-    // On récupère l'id numérique de la review
-    const reviewId = review.data?.id || review.content?.id;
-    const url = reviewId ? `https://app.ethos.network/activity/review/${reviewId}` : "#";
-
-    return `
-    <a href="${url}" target="_blank" class="card-row review-link">
-        <img class="card-avatar" src="${authorAvatar}" alt="${authorName}">
-        <span class="card-arrow">→</span>
-        <img class="card-avatar" src="${subjectAvatar}" alt="${subjectName}"> 
-        <div class="card-content">
-            <div class="card-line">
-                <span class="card-user">${authorName}</span>
-                <span class="card-verb">reviewed</span>
-                <span class="card-user">${subjectName}</span>
-                <span class="card-time">${timeAgo}</span>
-            </div>
-            <div class="card-title">${translatedTitle}</div>
-            <div class="card-description">${description}</div>
-        </div>
-    </a>
-    `;
+    return `${authorName} vouched ${subjectName} (${stakedAmount} ETH) • ${timeAgo}`;
 }
 
-
-function displayReviews(reviews) {
-    const container = document.getElementById('reviewsContainer');
-    if (reviews.length > 0) {
-        container.innerHTML = reviews.map(createReviewHTML).join('');
+function updateVouchesMarquee(vouches) {
+    const span = document.getElementById('vouchesMarqueeContent');
+    if (vouches.length > 0) {
+        // Colle tous les textes séparés par " | " pour effet ticker
+        span.textContent = vouches.map(vouchToMarqueeText).join('   |   ');
     } else {
-        container.innerHTML = '<div class="empty-state"><p>No recent reviews found between Giga Chads.</p></div>';
+        span.textContent = 'No recent vouches between Giga Chads';
     }
 }
 
 // ========== Initialisation ==========
 
-async function loadReviews() {
+async function loadVouches() {
     try {
-        debug('Starting reviews loading...');
-        const reviews = await fetchRecentReviews();
-        displayReviews(reviews);
+        debug('Starting vouches loading...');
+        const vouches = await fetchRecentVouches();
+        displayVouches(vouches);
+        updateVouchesMarquee(vouches);
         document.getElementById('loading').style.display = 'none';
         document.getElementById('content').style.display = 'block';
         debug('Loading completed successfully');
     } catch (error) {
-        debug('Error loading reviews', error);
+        debug('Error loading vouches', error);
         document.getElementById('loading').style.display = 'none';
         document.getElementById('content').style.display = 'block';
-        showError('Unable to load reviews. Check console for details.');
+        showError('Unable to load vouches. Check console for details.');
     }
 }
 
@@ -238,16 +236,16 @@ async function loadFromGitHub() {
 }
 
 document.addEventListener('DOMContentLoaded', async () => {
-    debug('Initializing reviews widget...');
+    debug('Initializing vouches widget...');
     const githubSuccess = await loadFromGitHub();
     if (githubSuccess) {
-        await loadReviews();
+        await loadVouches();
     } else {
         try {
             const response = await fetch('gigachads-ranking.json');
             if (response.ok) {
                 gigachadsData = await response.json();
-                await loadReviews();
+                await loadVouches();
             } else {
                 throw new Error('Local JSON file not found');
             }
