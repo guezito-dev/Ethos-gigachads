@@ -22,60 +22,84 @@ body {
   text-align: left;
 }
 
-.marquee {
-  font-family: "Inter", Arial, sans-serif;
-  font-size: 1.07rem;
-  font-weight: 500;
-  color: #e6ecf2;
+.marquee-wrap {
+  overflow: hidden;
+  width: 100%;
   background: #181b20;
-  padding: 12px;
-  border-radius: 12px;
-  overflow-x: hidden;
-  white-space: nowrap;
+  border-radius: 14px;
   position: relative;
+  height: 56px;
+  margin-bottom: 12px;
+  box-shadow: 0 2px 10px #00000022;
+  border: 1px solid #232425;
+}
+
+.marquee-wrap {
+  overflow: hidden;
+  width: 100%;
+  background: #181b20;
+  border-radius: 13px;
+  position: relative;
+  height: 56px;
+  margin: 16px 0 12px 0;
+  box-shadow: 0 2px 12px #0001;
+  border: 1px solid #212226;
+}
+
+.marquee {
   display: flex;
   align-items: center;
+  height: 100%;
+  width: fit-content;
+  will-change: transform;
+  animation: scroll-marquee linear infinite;
+  gap: 22px;
+  padding-left: 50vw; /* pour commencer hors écran à droite */
 }
-.marquee span {
-  display: inline-block;
-  animation: marquee-scroll 38s linear infinite;
-  vertical-align: middle;
+.marquee-paused { animation-play-state: paused !important; }
+
+@keyframes scroll-marquee {
+  100% { transform: translateX(var(--marquee-width, -50%)); }
+  0%   { transform: translateX(0); }
 }
-@keyframes marquee-scroll {
-  0% { transform: translateX(100%);}
-  100% { transform: translateX(-100%);}
+
+.vouch-card {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: #23272e;
+  border-radius: 12px;
+  border: 1px solid #24272f;
+  min-width: 290px;
+  padding: 8px 19px 8px 9px;
+  margin-right: 6px;
+  text-decoration: none;
+  transition: background .12s, border .12s;
+  cursor: pointer;
+  box-shadow: 0 1px 2px #00000010;
 }
-.vouch-separator {
-  color: #82b2fc;
-  margin: 0 18px;
-  font-weight: 900;
-  font-size: 1.1em;
-  letter-spacing: .09em;
+.vouch-card:hover, .vouch-card:focus {
+  background: #1e2936;
+  border: 1.3px solid #42afff;
+  outline: none;
 }
+
 .vouch-avatar {
-  width: 28px;
-  height: 28px;
-  border-radius: 50%;
-  margin: -5px 8px -5px 0;
-  vertical-align: middle;
-  box-shadow: 0 0 0 2px #222;
-  object-fit: cover;
+  width: 32px; height: 32px; border-radius: 50%;
+  object-fit: cover; margin-right: 4px;
+  border: 1.4px solid #232425;
+  background: #222;
 }
-.vouch-author {
-  display: inline-block;
-  margin-right: 4px;
-  font-weight: 700;
-  color: #fff;
-  vertical-align: middle;
+
+.vouch-arrow {
+  color: #41c9fa; font-weight: 900; font-size: 1.38em; margin: 0 7px;
 }
-.vouch-amount {
-  color: #53ffdf;
-  margin: 0 3px;
-  font-weight: 700;
+.vouch-row {
+  display: flex; gap: 0.5em; flex-wrap: wrap; align-items:center;
+  position:relative; min-width:0;
 }
-.vouch-date {
-  color: #7ef0c8;
-  opacity: .7;
-  font-size: .95em;
-  margin: 0 0 0 10px;
-}
+.vouch-amount { color: #53ffdf; font-weight: 700; margin-left: 8px; }
+.vouch-user { font-weight: 700; color: #fff; font-family: 'Inter',sans-serif; }
+.vouch-verb { color: #b7b9ff; font-weight: 700; margin: 0 3px;}
+.vouch-time { color: #7ef0c8; opacity: .74; font-size: .96em; margin-left: 10px; }
+.vouch-desc { color: #dde5fa; opacity:.79; font-size:.98em; margin-left:1px; white-space:nowrap; text-overflow:ellipsis; overflow:hidden; max-width:197px;}

@@ -1,7 +1,6 @@
 const DEBUG_MODE = true;
 const MAX_ITEMS = 8;
 const GITHUB_JSON_URL = 'https://raw.githubusercontent.com/guezito-dev/Ethos-gigachads/main/data/gigachads-ranking.json';
-
 let gigachadsData = null;
 const processedActivities = new Set();
 
@@ -24,11 +23,11 @@ function weiToEth(wei) {
     return (parseInt(wei) / 1e18).toFixed(3);
 }
 function getStakedAmount(activity) {
-    if (activity.data?.deposited)      return weiToEth(activity.data.deposited);
-    if (activity.content?.deposited)   return weiToEth(activity.content.deposited);
-    if (activity.data?.staked)         return weiToEth(activity.data.staked);
+    if (activity.data?.deposited) return weiToEth(activity.data.deposited);
+    if (activity.content?.deposited) return weiToEth(activity.content.deposited);
+    if (activity.data?.staked) return weiToEth(activity.data.staked);
     if (activity.content?.stakeAmount) return parseFloat(activity.content.stakeAmount).toFixed(3);
-    if (activity.content?.staked)      return weiToEth(activity.content.staked);
+    if (activity.content?.staked) return weiToEth(activity.content.staked);
     return '0.000';
 }
 function createUniqueId(activity) {
@@ -43,126 +42,142 @@ async function fetchUserActivities(userkey) {
     try {
         const response = await fetch('https://api.ethos.network/api/v2/activities/profile/all', {
             method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Accept': 'application/json'
-            },
+            headers: {'Content-Type': 'application/json', 'Accept': 'application/json'},
             body: JSON.stringify({
-                userkey,
-                excludeHistorical: false,
-                limit: 50,
-                offset: 0
+                userkey: userkey, excludeHistorical: false, limit: 50, offset: 0
             })
         });
         if (response.ok) {
             const data = await response.json();
-            return {
-                activities: data.values || [],
-                total: data.total || 0
-            };
+            return { activities: data.values || [], total: data.total || 0 };
         } else {
             return { activities: [], total: 0 };
         }
-    } catch (error) {
-        return { activities: [], total: 0 };
-    }
+    } catch (error) { return { activities: [], total: 0 }; }
 }
+
 async function fetchRecentVouches() {
     debug('Starting vouches fetch...');
-    if (!gigachadsData || !gigachadsData.ranking)
-        throw new Error('Giga Chads data not available');
+    if (!gigachadsData || !gigachadsData.ranking) throw new Error('Giga Chads data not available');
     const allVouches = [];
     const gigachadProfileIds = new Set(gigachadsData.ranking.map(u => u.user.profileId));
-    const profileIdToUser = Object.fromEntries(gigachadsData.ranking.map(u => [u.user.profileId, u.user]));
+    const profileIdToUser = new Map(gigachadsData.ranking.map(u => [u.user.profileId, u.user]));
     processedActivities.clear();
 
-    const usersToCheck = gigachadsData.ranking.slice(0, 20); // Check top 20 by default
+    const usersToCheck = gigachadsData.ranking.slice(0, 10);
     for (const userRank of usersToCheck) {
-        const userkey = `profileId:${userRank.user.profileId}`; // CRUCIAL!
-        const result = await fetchUserActivities(userkey);
-        if (result.activities.length > 0) {
-            result.activities.forEach(activity => {
-                const authorProfileId = activity.author?.profileId;
-                const subjectProfileId = activity.subject?.profileId;
-                if (activity.type?.toLowerCase() === 'vouch' && authorProfileId && subjectProfileId) {
-                    const uniqueId = createUniqueId(activity);
-                    if (!processedActivities.has(uniqueId)) {
-                        processedActivities.add(uniqueId);
-                        if (
-                            gigachadProfileIds.has(subjectProfileId) &&
-                            gigachadProfileIds.has(authorProfileId) &&
-                            authorProfileId !== subjectProfileId
-                        ) {
-                            const subjectUser = profileIdToUser[subjectProfileId];
-                            const authorUser = profileIdToUser[authorProfileId];
-                            if (subjectUser && authorUser) {
-                                allVouches.push({
-                                    authorUser,
-                                    subjectUser,
-                                    stakedAmount: getStakedAmount(activity),
-                                    createdAt: activity.createdAt || activity.timestamp
-                                });
+        try {
+            const userkey = `profileId:${userRank.user.profileId}`;
+            const result = await fetchUserActivities(userkey);
+            if (result.activities.length > 0) {
+                result.activities.forEach(activity => {
+                    const authorProfileId = activity.author?.profileId;
+                    const subjectProfileId = activity.subject?.profileId;
+                    if (activity.type === 'vouch' && authorProfileId && subjectProfileId) {
+                        const uniqueId = createUniqueId(activity);
+                        if (!processedActivities.has(uniqueId)) {
+                            processedActivities.add(uniqueId);
+
+                            if (gigachadProfileIds.has(subjectProfileId) && gigachadProfileIds.has(authorProfileId) && authorProfileId !== subjectProfileId) {
+                                const subjectUser = profileIdToUser.get(subjectProfileId);
+                                const authorUser = profileIdToUser.get(authorProfileId);
+                                if (subjectUser && authorUser) {
+                                    const stakedAmount = getStakedAmount(activity);
+                                    // => avatar url, vouch url
+                                    allVouches.push({
+                                        ...activity,
+                                        authorUser: authorUser,
+                                        subjectUser: subjectUser,
+                                        stakedAmount,
+                                        vouchText: (activity.translation?.translatedContent || activity.comment || ''),
+                                        vouchUrl:
+                                            (activity.data?.id ? `https://app.ethos.network/activity/vouch/${activity.data?.id}` :
+                                            activity.content?.id ? `https://app.ethos.network/activity/vouch/${activity.content?.id}` : "#")
+                                    });
+                                }
                             }
                         }
                     }
-                }
-            });
-        }
+                });
+            }
+        } catch(e) { debug('err',e); }
+        await new Promise(res => setTimeout(res, 200));
     }
-    debug('Total vouches fetched', { count: allVouches.length });
-    allVouches.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+    allVouches.sort((a, b) =>
+        new Date(b.createdAt || b.timestamp) - new Date(a.createdAt || a.timestamp)
+    );
     return allVouches.slice(0, MAX_ITEMS);
 }
-function vouchToMarqueeHTML(vouch) {
-    const authorImg = vouch.authorUser?.avatar || "https://api.dicebear.com/7.x/adventurer/svg?radius=50&seed=" + encodeURIComponent(vouch.authorUser?.username || "avatar");
-    const subjectImg = vouch.subjectUser?.avatar || "https://api.dicebear.com/7.x/adventurer/svg?radius=50&seed=" + encodeURIComponent(vouch.subjectUser?.username || "avatar");
-    const author = `<img src="${authorImg}" class="vouch-avatar" loading="lazy" draggable="false">
-      <span class="vouch-author">${vouch.authorUser.displayName || vouch.authorUser.username}</span>`;
-    const subject = `<img src="${subjectImg}" class="vouch-avatar" loading="lazy" draggable="false">
-      <span class="vouch-author">${vouch.subjectUser.displayName || vouch.subjectUser.username}</span>`;
-    const staked = `<span class="vouch-amount">${vouch.stakedAmount} ETH</span>`;
-    const timeAgo = `<span class="vouch-date">${formatTimeAgo(vouch.createdAt||vouch.timestamp)}</span>`;
-    return `${author}
-        <span style="font-weight:900;font-size:1.05em; color:#41c9fa">→</span>
-        ${subject}
-        ${staked}
-        ${timeAgo}`;
+
+// --------- CARTE GROUPÉE ---------
+function getUserAvatarUrl(userObj) {
+    // Ethos avatar ou fallback
+    return userObj.avatarUrl
+      || userObj.avatar
+      || `https://api.dicebear.com/7.x/adventurer/svg?radius=50&seed=${encodeURIComponent(userObj.username || userObj.displayName || "avatar")}`;
 }
+function makeVouchCard(vouch) {
+    // tout groupé, lien clicable
+    return `
+    <a href="${vouch.vouchUrl}" target="_blank" class="vouch-card" title="Voir ce vouch">
+      <img class="vouch-avatar" src="${getUserAvatarUrl(vouch.authorUser)}" alt="${vouch.authorUser.displayName||vouch.authorUser.username}">
+      <span class="vouch-arrow">→</span>
+      <img class="vouch-avatar" src="${getUserAvatarUrl(vouch.subjectUser)}" alt="${vouch.subjectUser.displayName||vouch.subjectUser.username}">
+      <div class="vouch-row" style="flex:1;min-width:0;">
+        <span class="vouch-user">${vouch.authorUser.displayName||vouch.authorUser.username}</span>
+        <span class="vouch-verb">vouched</span>
+        <span class="vouch-user">${vouch.subjectUser.displayName||vouch.subjectUser.username}</span>
+        <span class="vouch-amount">${vouch.stakedAmount} ETH</span>
+        <span class="vouch-time">${formatTimeAgo(vouch.createdAt||vouch.timestamp)}</span>
+        ${vouch.vouchText && vouch.vouchText.length > 1
+            ? `<span class="vouch-desc">${vouch.vouchText.replace(/"/g,'&quot;')}</span>` : ""}
+      </div>
+    </a>`;
+}
+
 function updateVouchesMarquee(vouches) {
-    const span = document.getElementById('vouchesMarqueeContent');
-    if (!span) return;
+    const marquee = document.getElementById('vouchesMarquee');
+    if (!marquee) return;
     if (vouches.length > 0) {
-        span.innerHTML = vouches.map(vouchToMarqueeHTML).join('<span class="vouch-separator">|</span>');
-    } else {
-        span.innerHTML = '<span style="opacity:0.5">No recent vouches between Giga Chads</span>';
-    }
+        // On duplique pour effet infini
+        const html = vouches.map(makeVouchCard).join('');
+        marquee.innerHTML = html + html;
+        setTimeout(() => {
+            // adapte auto la durée selon la largeur du flux
+            const width = marquee.scrollWidth / 2;
+            const duration = Math.max(39, Math.floor(width/37));
+            marquee.style.animationDuration = duration + 's';
+            marquee.style.setProperty('--marquee-width', `-${width}px`);
+            marquee.style.animationName = '';
+            void marquee.offsetWidth;
+            marquee.style.animationName = 'scroll-marquee';
+        }, 120);
+    } else marquee.innerHTML = "<div style='color:#ccc;padding:16px'>No vouch found.</div>";
 }
+
+// ========== Chargement principal ==========
+
 async function loadFromGitHub() {
-    try {
-        debug('Loading Gigachads from GitHub...');
-        const response = await fetch(GITHUB_JSON_URL);
-        if (response.ok) {
-            gigachadsData = await response.json();
-            debug('GitHub data loaded successfully');
-            return true;
-        } else {
-            debug('GitHub file not found or not accessible');
-            return false;
-        }
-    } catch (error) {
-        debug('GitHub loading failed', error);
-        return false;
+    debug('Load from github...');
+    const response = await fetch(GITHUB_JSON_URL);
+    if (response.ok) {
+      gigachadsData = await response.json();
+      return true;
     }
+    return false;
 }
+
 document.addEventListener('DOMContentLoaded', async () => {
-    debug('Initializing vouches marquee widget...');
-    const githubSuccess = await loadFromGitHub();
-    if (githubSuccess) {
-        try {
-            const vouches = await fetchRecentVouches();
-            updateVouchesMarquee(vouches);
-        } catch (e) {
-            debug('Error loading vouches', e);
-        }
+    const ok = await loadFromGitHub();
+    if (ok) {
+        const vouches = await fetchRecentVouches();
+        updateVouchesMarquee(vouches);
     }
+    // On bloque le scroll au hover/focus
+    const marquee = document.getElementById('vouchesMarquee');
+    if (!marquee) return;
+    marquee.addEventListener('mouseenter', () => marquee.classList.add('marquee-paused'));
+    marquee.addEventListener('mouseleave', () => marquee.classList.remove('marquee-paused'));
+    marquee.addEventListener('focusin', () => marquee.classList.add('marquee-paused'));
+    marquee.addEventListener('focusout', () => marquee.classList.remove('marquee-paused'));
 });
