@@ -1,14 +1,13 @@
 const DEBUG_MODE = true;
-const MAX_ITEMS = 8; // nombre de vouches à afficher dans le marquee
+const MAX_ITEMS = 8;
 const GITHUB_JSON_URL = 'https://raw.githubusercontent.com/guezito-dev/Ethos-gigachads/main/data/gigachads-ranking.json';
 
 let gigachadsData = null;
+const processedActivities = new Set();
 
 function debug(message, data = null) {
     if (DEBUG_MODE) console.log('[VOUCHES]', message, data);
 }
-
-// Utils
 function formatTimeAgo(timestamp) {
     let t = parseInt(timestamp, 10);
     if (t < 1e12) t = t * 1000;
@@ -40,6 +39,7 @@ function createUniqueId(activity) {
     return `${type}-${authorId}-${subjectId}-${timestamp}`;
 }
 async function fetchUserActivities(userkey) {
+    debug(`Fetching activities for ${userkey}`);
     try {
         const response = await fetch('https://api.ethos.network/api/v2/activities/profile/all', {
             method: 'POST',
@@ -47,20 +47,72 @@ async function fetchUserActivities(userkey) {
                 'Content-Type': 'application/json',
                 'Accept': 'application/json'
             },
-            body: JSON.stringify({ userkey: userkey, excludeHistorical: false, limit: 50, offset: 0 })
+            body: JSON.stringify({
+                userkey,
+                excludeHistorical: false,
+                limit: 50,
+                offset: 0
+            })
         });
         if (response.ok) {
             const data = await response.json();
-            return data.values || [];
+            return {
+                activities: data.values || [],
+                total: data.total || 0
+            };
         } else {
-            return [];
+            return { activities: [], total: 0 };
         }
     } catch (error) {
-        return [];
+        return { activities: [], total: 0 };
     }
 }
+async function fetchRecentVouches() {
+    debug('Starting vouches fetch...');
+    if (!gigachadsData || !gigachadsData.ranking)
+        throw new Error('Giga Chads data not available');
+    const allVouches = [];
+    const gigachadProfileIds = new Set(gigachadsData.ranking.map(u => u.user.profileId));
+    const profileIdToUser = Object.fromEntries(gigachadsData.ranking.map(u => [u.user.profileId, u.user]));
+    processedActivities.clear();
 
-// Rendu visual du marquee
+    const usersToCheck = gigachadsData.ranking.slice(0, 20); // Check top 20 by default
+    for (const userRank of usersToCheck) {
+        const userkey = `profileId:${userRank.user.profileId}`; // CRUCIAL!
+        const result = await fetchUserActivities(userkey);
+        if (result.activities.length > 0) {
+            result.activities.forEach(activity => {
+                const authorProfileId = activity.author?.profileId;
+                const subjectProfileId = activity.subject?.profileId;
+                if (activity.type?.toLowerCase() === 'vouch' && authorProfileId && subjectProfileId) {
+                    const uniqueId = createUniqueId(activity);
+                    if (!processedActivities.has(uniqueId)) {
+                        processedActivities.add(uniqueId);
+                        if (
+                            gigachadProfileIds.has(subjectProfileId) &&
+                            gigachadProfileIds.has(authorProfileId) &&
+                            authorProfileId !== subjectProfileId
+                        ) {
+                            const subjectUser = profileIdToUser[subjectProfileId];
+                            const authorUser = profileIdToUser[authorProfileId];
+                            if (subjectUser && authorUser) {
+                                allVouches.push({
+                                    authorUser,
+                                    subjectUser,
+                                    stakedAmount: getStakedAmount(activity),
+                                    createdAt: activity.createdAt || activity.timestamp
+                                });
+                            }
+                        }
+                    }
+                }
+            });
+        }
+    }
+    debug('Total vouches fetched', { count: allVouches.length });
+    allVouches.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+    return allVouches.slice(0, MAX_ITEMS);
+}
 function vouchToMarqueeHTML(vouch) {
     const authorImg = vouch.authorUser?.avatar || "https://api.dicebear.com/7.x/adventurer/svg?radius=50&seed=" + encodeURIComponent(vouch.authorUser?.username || "avatar");
     const subjectImg = vouch.subjectUser?.avatar || "https://api.dicebear.com/7.x/adventurer/svg?radius=50&seed=" + encodeURIComponent(vouch.subjectUser?.username || "avatar");
@@ -85,43 +137,6 @@ function updateVouchesMarquee(vouches) {
         span.innerHTML = '<span style="opacity:0.5">No recent vouches between Giga Chads</span>';
     }
 }
-
-// Composite fetch
-async function fetchRecentVouches() {
-    debug('Starting vouches fetch...');
-    if (!gigachadsData || !gigachadsData.ranking) throw new Error('Giga Chads data not available');
-    const allVouches = [];
-    const gigachadProfileIds = new Set(gigachadsData.ranking.map(u => u.user.profileId));
-    const processed = new Set();
-
-    // Pour chaque participant
-    for (let obj of gigachadsData.ranking) {
-        const p = obj.user;
-        if (!p.profileId) continue;
-        debug('Fetching activities for profileId:' + p.profileId);
-        const activities = await fetchUserActivities(p.profileId);
-        activities.forEach(activity => {
-            // Uniquement les vouches récentes entre gigachads
-            if (activity.type?.includes("VOUCH") && activity.subjectUser && gigachadProfileIds.has(activity.subjectUser.profileId)) {
-                const id = createUniqueId(activity);
-                if (!processed.has(id)) {
-                    processed.add(id);
-                    allVouches.push({
-                        authorUser: activity.authorUser || p,
-                        subjectUser: activity.subjectUser,
-                        stakedAmount: getStakedAmount(activity),
-                        createdAt: activity.createdAt || activity.timestamp
-                    });
-                }
-            }
-        });
-    }
-    allVouches.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
-    debug('Total vouches fetched', { count: allVouches.length });
-    return allVouches.slice(0, MAX_ITEMS);
-}
-
-// Récupère JSON puis lance le fetch vouches
 async function loadFromGitHub() {
     try {
         debug('Loading Gigachads from GitHub...');
@@ -139,8 +154,6 @@ async function loadFromGitHub() {
         return false;
     }
 }
-
-// Init au chargement page
 document.addEventListener('DOMContentLoaded', async () => {
     debug('Initializing vouches marquee widget...');
     const githubSuccess = await loadFromGitHub();
