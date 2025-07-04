@@ -257,3 +257,6 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
     }
 });
+
+console.log("Script vouches OK"); // Vérifie dans Console que tu vois ce message !
+document.getElementById('vouchesMarqueeContent').innerText = "ÇA MARCHE !";
