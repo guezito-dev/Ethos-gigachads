@@ -204,14 +204,11 @@ async function loadVouches() {
     try {
         debug('Starting vouches loading...');
         const vouches = await fetchRecentVouches();
-        displayVouches(vouches);
         updateVouchesMarquee(vouches);
-        document.getElementById('loading').style.display = 'none';
         document.getElementById('content').style.display = 'block';
         debug('Loading completed successfully');
     } catch (error) {
         debug('Error loading vouches', error);
-        document.getElementById('loading').style.display = 'none';
         document.getElementById('content').style.display = 'block';
         showError('Unable to load vouches. Check console for details.');
     }
@@ -258,5 +255,4 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 });
 
-console.log("Script vouches OK"); // Vérifie dans Console que tu vois ce message !
-document.getElementById('vouchesMarqueeContent').innerText = "ÇA MARCHE !";
+
