@@ -1,92 +1,94 @@
-/* Reset et style global */
+/* Réinitialisation des styles par défaut */
 * {
     margin: 0;
     padding: 0;
     box-sizing: border-box;
-    font-family: 'Arial', sans-serif;
 }
 
+/* Style général du corps de la page (thème sombre) */
 body {
+    font-family: 'Arial', sans-serif;
     background-color: #121212;
-    color: #e0e0e0;
+    color: #ffffff;
     line-height: 1.6;
+    padding: 20px;
 }
 
+/* Conteneur principal */
 .container {
     max-width: 1200px;
     margin: 0 auto;
     padding: 20px;
 }
 
+/* Style pour l'en-tête */
 header {
     text-align: center;
-    margin-bottom: 40px;
-    padding: 20px;
-    background-color: #1e1e1e;
-    border-radius: 10px;
-    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+    margin-bottom: 30px;
 }
 
 header h1 {
-    color: #ffffff;
     font-size: 2.5em;
+    color: #f0f0f0;
     margin-bottom: 10px;
 }
 
 header p {
+    font-size: 1em;
     color: #a0a0a0;
-    font-size: 1.1em;
 }
 
-.data-section {
-    margin-bottom: 50px;
-}
-
-.data-section h2 {
-    color: #ffffff;
-    font-size: 1.8em;
-    margin-bottom: 20px;
-    text-align: center;
-}
-
-/* Style des cartes */
-.card-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-    gap: 20px;
-}
-
+/* Style pour les cartes */
 .card {
-    background-color: #1e1e1e;
+    background: #1e1e1e;
     border-radius: 10px;
-    padding: 20px;
-    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
-    transition: transform 0.3s ease, box-shadow 0.3s ease;
+    padding: 15px;
+    margin: 10px;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+    transition: transform 0.2s ease-in-out;
+    color: #ffffff;
     opacity: 0;
-    animation: fadeIn 0.5s ease-out forwards;
+    animation: fadeIn 0.5s ease-in-out forwards;
 }
 
 .card:hover {
     transform: translateY(-5px);
-    box-shadow: 0 6px 12px rgba(0, 0, 0, 0.5);
 }
 
-.card h3 {
-    color: #ffffff;
-    font-size: 1.4em;
+/* Style pour l'en-tête de la review (avatar + nom) */
+.review-header {
+    display: flex;
+    align-items: center;
     margin-bottom: 10px;
 }
 
-.card p {
-    color: #b0b0b0;
-    font-size: 1em;
-    margin-bottom: 10px;
+.avatar {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    margin-right: 10px;
+    object-fit: cover;
 }
 
-.card .time-ago {
-    color: #888888;
-    font-style: italic;
+/* Style pour le titre de la review */
+.review-title {
+    margin: 10px 0;
+    font-size: 1.1em;
+    color: #f0f0f0;
+}
+
+/* Style pour la description */
+.review-description {
+    margin-top: 5px;
     font-size: 0.9em;
+    color: #b0b0b0;
+}
+
+/* Style pour le temps */
+.time-ago {
+    font-size: 0.8em;
+    color: #888888;
+    margin-bottom: 10px;
 }
 
 /* Animation d'apparition */
@@ -96,17 +98,38 @@ header p {
     }
 }
 
-/* Responsive */
-@media (max-width: 768px) {
-    .card-grid {
-        grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
-    }
+/* Grille responsive pour les cartes */
+.card-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 20px;
+    width: 100%;
+    max-width: 1200px;
+    margin: 0 auto;
+}
 
+/* Style pour les messages d'erreur */
+.error {
+    background-color: #2a1a1a;
+    color: #ff5555;
+    padding: 15px;
+    border-radius: 5px;
+    margin: 20px 0;
+}
+
+/* Responsive design pour petits écrans */
+@media (max-width: 600px) {
     header h1 {
         font-size: 2em;
     }
 
-    .data-section h2 {
-        font-size: 1.5em;
+    .card {
+        margin: 5px;
+        padding: 10px;
+    }
+
+    .card-grid {
+        grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+        gap: 10px;
     }
 }

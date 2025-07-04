@@ -37,14 +37,22 @@ function showError(message, details = null) {
 // ========== Activity Parsing ==========
 
 function getReviewTitle(activity) {
+    if (activity.data?.comment) return activity.data.comment; // Utilisation de "comment" comme titre
     if (activity.content?.title) return activity.content.title;
-    if (activity.content?.comment) return activity.content.comment;
     if (activity.content?.text) return activity.content.text;
     const subjectName = activity.subjectUser?.displayName || activity.subjectUser?.username || 'User';
     return `Review for ${subjectName}`;
 }
 
 function getReviewDescription(activity) {
+    if (activity.data?.metadata) {
+        try {
+            const metadata = JSON.parse(activity.data.metadata);
+            return metadata.description || '';
+        } catch (e) {
+            return '';
+        }
+    }
     if (activity.content?.description) return activity.content.description;
     if (activity.translatedDescription) return activity.translatedDescription;
     if (activity.description) return activity.description;
@@ -168,18 +176,33 @@ function displayReviews(reviews) {
         card.classList.add('card');
         card.style.animationDelay = `${index * 0.1}s`; // Délai d'animation pour chaque carte
 
-        const authorName = review.authorUser.displayName || review.authorUser.username || 'Anonymous';
-        const subjectName = review.subjectUser.displayName || review.subjectUser.username || 'Unknown User';
+        const authorName = review.author?.name || review.authorUser?.displayName || review.authorUser?.username || 'Anonymous';
+        const authorAvatar = review.author?.avatar || '';
+        const subjectName = review.subject?.name || review.subjectUser?.displayName || review.subjectUser?.username || 'Unknown User';
         const timeAgo = formatTimeAgo(review.createdAt || review.timestamp);
-        const title = getReviewTitle(review);
-        const description = getReviewDescription(review);
+        const title = getReviewTitle(review); // Récupère le titre via "comment"
+        const description = getReviewDescription(review); // Récupère la description via metadata
+        const reviewId = review.data?.id || 0; // Récupère l'ID pour le lien
+        const reviewLink = reviewId ? `https://app.ethos.network/activity/review/${reviewId}` : '#'; // Lien cliquable
 
+        // Créer le contenu de la carte avec avatar et lien cliquable
         card.innerHTML = `
-            <h3>${authorName} reviewed ${subjectName}</h3>
+            <div class="review-header">
+                ${authorAvatar ? `<img src="${authorAvatar}" alt="${authorName}" class="avatar">` : ''}
+                <h3>${authorName} reviewed ${subjectName}</h3>
+            </div>
             <p class="time-ago">${timeAgo}</p>
-            <p><strong>${title}</strong></p>
-            ${description ? `<p>${description}</p>` : ''}
+            <p class="review-title"><strong>${title}</strong></p>
+            ${description ? `<p class="review-description">${description}</p>` : ''}
         `;
+
+        // Ajouter un événement de clic pour rediriger vers le lien
+        card.style.cursor = 'pointer';
+        card.addEventListener('click', () => {
+            if (reviewLink !== '#') {
+                window.open(reviewLink, '_blank'); // Ouvre le lien dans un nouvel onglet
+            }
+        });
 
         container.appendChild(card);
     });
